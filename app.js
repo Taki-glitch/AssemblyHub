@@ -1,3 +1,7 @@
+const scriptUrl = new URL(document.currentScript.src);
+const appBase = scriptUrl.pathname.replace(/\/?app\.js$/, '');
+const normalizedBase = appBase === '/' ? '' : appBase;
+
 const routes = [
   { path: '/', label: 'Accueil', icon: '⌂', primary: true },
   { path: '/reunions', label: 'Réunions', icon: '◷', primary: true },
@@ -77,9 +81,22 @@ const formatDate = (value) => value === '—' ? value : dateFormatter.format(new
 const shortDate = (value) => shortDateFormatter.format(new Date(value));
 const isFuture = (value) => new Date(value) >= new Date('2026-07-27T00:00:00Z');
 
+function routeToUrl(path) {
+  if (path === '/') return `${normalizedBase || '/'}${normalizedBase ? '/' : ''}`;
+  return `${normalizedBase}${path}/`;
+}
+
+function pathFromLocation() {
+  let pathname = window.location.pathname;
+  if (normalizedBase && pathname.startsWith(`${normalizedBase}/`)) {
+    pathname = pathname.slice(normalizedBase.length);
+  }
+  return pathname.replace(/\/$/, '') || '/';
+}
+
 function navigate(path) {
-  if ((window.location.pathname.replace(/\/$/, '') || '/') !== path) {
-    window.history.pushState({}, '', path);
+  if (pathFromLocation() !== path) {
+    window.history.pushState({}, '', routeToUrl(path));
   }
   renderRoute();
 }
@@ -88,13 +105,21 @@ function normalizePath() {
   const redirectedPath = sessionStorage.getItem('redirect');
   if (redirectedPath) {
     sessionStorage.removeItem('redirect');
-    window.history.replaceState({}, '', redirectedPath);
+    window.history.replaceState({}, '', routeToUrl(redirectedPath));
   }
 }
 
 function routeForPath() {
-  const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+  const pathname = pathFromLocation();
   return routes.find((route) => route.path === pathname) || routes[0];
+}
+
+
+function pathToRoute(pathname) {
+  if (normalizedBase && pathname.startsWith(`${normalizedBase}/`)) {
+    pathname = pathname.slice(normalizedBase.length);
+  }
+  return pathname.replace(/\/$/, '') || '/';
 }
 
 function bindLinks(root = document) {
@@ -102,7 +127,7 @@ function bindLinks(root = document) {
     link.addEventListener('click', (event) => {
       event.preventDefault();
       closeMoreSheet();
-      navigate(new URL(link.href).pathname);
+      navigate(link.dataset.route || pathToRoute(new URL(link.href).pathname));
     });
   });
 }
@@ -114,7 +139,7 @@ function renderNavigation() {
       <span class="tab-icon">☰</span><span>Plus</span>
     </button>`;
   document.querySelector('#more-grid').innerHTML = routes.filter((route) => route.more).map((route) => `
-    <a href="${route.path}" data-link><span>${route.icon}</span> ${route.label}</a>`).join('');
+    <a href="${routeToUrl(route.path)}" data-route="${route.path}" data-link><span>${route.icon}</span> ${route.label}</a>`).join('');
   document.querySelector('#open-more').addEventListener('click', openMoreSheet);
   document.querySelector('#close-more').addEventListener('click', closeMoreSheet);
   moreSheet.addEventListener('click', (event) => {
@@ -126,9 +151,9 @@ function renderNavigation() {
 function navLink(route, compact = false) {
   const active = route.path === routeForPath().path ? 'aria-current="page"' : '';
   if (compact) {
-    return `<a href="${route.path}" data-link ${active}><span class="tab-icon">${route.icon}</span><span>${route.label}</span></a>`;
+    return `<a href="${routeToUrl(route.path)}" data-route="${route.path}" data-link ${active}><span class="tab-icon">${route.icon}</span><span>${route.label}</span></a>`;
   }
-  return `<a href="${route.path}" data-link ${active}>${route.icon} ${route.label}</a>`;
+  return `<a href="${routeToUrl(route.path)}" data-route="${route.path}" data-link ${active}>${route.icon} ${route.label}</a>`;
 }
 
 function openMoreSheet() {
@@ -177,21 +202,21 @@ function renderHome() {
     </section>
     <div class="section-stack" style="margin-top:18px">
       <section class="panel">
-        <div class="panel-header"><h2>Mes affectations</h2><a class="action-button action-button--soft" href="/affectations" data-link>Tout voir</a></div>
+        <div class="panel-header"><h2>Mes affectations</h2><a class="action-button action-button--soft" href="${routeToUrl('/affectations')}" data-route="/affectations" data-link>Tout voir</a></div>
         <div class="card-list">${futureAssignments.map((item) => infoCard(item.role, `${item.module} · ${formatDate(item.date)}`, [{ label: item.status, tone: item.status === 'Confirmé' ? 'success' : 'warning' }])).join('')}</div>
       </section>
       <section class="grid">
         <div class="panel span-6">
-          <div class="panel-header"><h2>Annonces importantes</h2><a class="action-button action-button--soft" href="/annonces" data-link>Ouvrir</a></div>
+          <div class="panel-header"><h2>Annonces importantes</h2><a class="action-button action-button--soft" href="${routeToUrl('/annonces')}" data-route="/annonces" data-link>Ouvrir</a></div>
           <div class="card-list">${store.announcements.filter((item) => !item.archived && item.priority !== 'info').slice(0, 2).map((item) => infoCard(item.title, item.message, [{ label: item.priority, tone: item.priority === 'urgent' ? 'danger' : 'warning' }])).join('')}</div>
         </div>
         <div class="panel span-6">
-          <div class="panel-header"><h2>Nouveaux documents</h2><a class="action-button action-button--soft" href="/documents" data-link>Bibliothèque</a></div>
+          <div class="panel-header"><h2>Nouveaux documents</h2><a class="action-button action-button--soft" href="${routeToUrl('/documents')}" data-route="/documents" data-link>Bibliothèque</a></div>
           <div class="card-list">${store.documents.slice(0, 2).map((item) => infoCard(item.title, `Publié le ${formatDate(item.publishedAt)}`, [{ label: item.category }, { label: item.size }])).join('')}</div>
         </div>
       </section>
       <section class="panel">
-        <div class="panel-header"><h2>Prochaines réunions</h2><a class="action-button action-button--soft" href="/reunions" data-link>Calendrier</a></div>
+        <div class="panel-header"><h2>Prochaines réunions</h2><a class="action-button action-button--soft" href="${routeToUrl('/reunions')}" data-route="/reunions" data-link>Calendrier</a></div>
         <div class="grid">
           <div class="span-6">${infoCard(nextWeek.type, `${formatDate(nextWeek.date)} · Président : ${nextWeek.chairman}`, [{ label: 'Semaine' }])}</div>
           <div class="span-6">${infoCard(nextWeekend.type, `${formatDate(nextWeekend.date)} · Président : ${nextWeekend.chairman}`, [{ label: 'Week-end' }])}</div>
@@ -367,7 +392,7 @@ function initializeOfflineToast() {
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    await navigator.serviceWorker.register('/service-worker.js');
+    await navigator.serviceWorker.register(`${normalizedBase}/service-worker.js`, { scope: `${normalizedBase || ''}/` });
   } catch (error) {
     console.warn('Service worker registration failed', error);
   }

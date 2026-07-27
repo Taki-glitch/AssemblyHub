@@ -6,8 +6,11 @@
     <meta name="theme-color" content="#2563eb" />
     <title>AssemblyHub</title>
     <script>
-      sessionStorage.redirect = location.pathname;
-      location.replace('/');
+      const segments = location.pathname.split('/').filter(Boolean);
+      const repositoryBase = segments.length > 1 ? `/${segments[0]}` : '';
+      const routePath = repositoryBase ? location.pathname.slice(repositoryBase.length) : location.pathname;
+      sessionStorage.redirect = routePath || '/';
+      location.replace(`${repositoryBase || '/'}${repositoryBase ? '/' : ''}`);
     </script>
   </head>
   <body>Redirection vers AssemblyHub…</body>

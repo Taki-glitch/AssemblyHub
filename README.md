@@ -74,6 +74,11 @@ python3 -m http.server 8000
 
 Puis ouvrez <http://localhost:8000>.
 
+
+## Compatibilité GitHub Pages
+
+Les fichiers HTML utilisent des chemins relatifs (`styles.css`, `../styles.css`, `app.js`, `../app.js`) afin que le site fonctionne aussi bien en local qu’une fois publié sous le sous-chemin GitHub Pages du dépôt, par exemple `/AssemblyHub/`. Le routeur JavaScript détecte automatiquement ce sous-chemin avant de générer les liens internes.
+
 ## Brancher Firebase
 
 1. Créez un projet Firebase.
