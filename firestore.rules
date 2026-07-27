@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return signedIn() ? userDoc().data.role : null;
+    }
+
+    function isAdmin() {
+      return role() == 'administrateur';
+    }
+
+    function isEditor() {
+      return role() == 'éditeur';
+    }
+
+    function canEditModule(moduleName) {
+      return isAdmin() || (isEditor() && moduleName in userDoc().data.privileges);
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /meetings/{meetingId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('meetings');
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('assignments');
+    }
+
+    match /talks/{talkId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('talks');
+    }
+
+    match /territories/{territoryId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('territories');
+    }
+
+    match /documents/{documentId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('documents');
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if signedIn();
+      allow write: if canEditModule('announcements');
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || isEditor();
+      allow update, delete: if false;
+    }
+  }
+}
