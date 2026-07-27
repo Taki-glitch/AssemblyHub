@@ -35,9 +35,9 @@ service cloud.firestore {
       allow write: if canEditModule('meetings');
     }
 
-    match /assignments/{assignmentId} {
+    match /meetingAssignments/{assignmentId} {
       allow read: if signedIn();
-      allow write: if canEditModule('assignments');
+      allow write: if canEditModule('meetingAssignments');
     }
 
     match /talks/{talkId} {
@@ -64,6 +64,11 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAdmin() || isEditor();
       allow update, delete: if false;
+    }
+
+    match /settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
   }
 }
