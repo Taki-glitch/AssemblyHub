@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#1d4ed8" />
+    <meta
+      name="description"
+      content="AssemblyHub centralise les réunions, affectations, annonces, documents et territoires d'une congrégation."
+    />
+    <title>AssemblyHub</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation principale">
+        <a class="brand" href="#dashboard" aria-label="AssemblyHub accueil">
+          <span class="brand__mark">AH</span>
+          <span>
+            <strong>AssemblyHub</strong>
+            <small>Congrégation privée</small>
+          </span>
+        </a>
+        <nav class="nav" id="main-navigation"></nav>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Changer le thème">
+          <span aria-hidden="true">◐</span>
+          Mode sombre
+        </button>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <button class="menu-button" id="menu-button" type="button" aria-label="Ouvrir le menu">☰</button>
+          <div>
+            <p class="eyebrow">Version MVP 1.0</p>
+            <h1>Tableau de bord de la congrégation</h1>
+          </div>
+          <div class="profile-card" aria-label="Utilisateur connecté">
+            <span class="status-dot" aria-hidden="true"></span>
+            <div>
+              <strong>Administrateur</strong>
+              <small>admin@assemblyhub.local</small>
+            </div>
+          </div>
+        </header>
+
+        <section class="hero-card" id="dashboard">
+          <div>
+            <p class="eyebrow">Application PWA privée</p>
+            <h2>Organisez réunions, affectations, documents et annonces au même endroit.</h2>
+            <p>
+              Cette interface de départ illustre le MVP AssemblyHub avec des données d'exemple,
+              une navigation responsive, le mode hors ligne et les points d'intégration Firebase.
+            </p>
+          </div>
+          <div class="hero-actions">
+            <a class="button button--primary" href="#meetings">Voir les réunions</a>
+            <a class="button button--ghost" href="#documents">Documents récents</a>
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="Indicateurs clés">
+          <article class="stat-card">
+            <span>Réunions à venir</span>
+            <strong id="meeting-count">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Affectations actives</span>
+            <strong id="assignment-count">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Documents publiés</span>
+            <strong id="document-count">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Territoires suivis</span>
+            <strong id="territory-count">0</strong>
+          </article>
+        </section>
+
+        <div class="content-grid">
+          <section class="panel" id="meetings">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Réunions</p>
+                <h2>Prochaines réunions</h2>
+              </div>
+              <button class="button button--small" type="button">Nouvelle réunion</button>
+            </div>
+            <div class="card-list" id="meetings-list"></div>
+          </section>
+
+          <section class="panel" id="assignments">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Affectations</p>
+                <h2>Mes responsabilités</h2>
+              </div>
+            </div>
+            <div class="card-list" id="assignments-list"></div>
+          </section>
+
+          <section class="panel" id="announcements">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Annonces</p>
+                <h2>Informations importantes</h2>
+              </div>
+            </div>
+            <div class="card-list" id="announcements-list"></div>
+          </section>
+
+          <section class="panel" id="documents">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Documents</p>
+                <h2>Bibliothèque</h2>
+              </div>
+              <label class="search-box">
+                <span class="sr-only">Rechercher un document</span>
+                <input id="document-search" type="search" placeholder="Rechercher..." />
+              </label>
+            </div>
+            <div class="card-list" id="documents-list"></div>
+          </section>
+
+          <section class="panel" id="territories">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Territoires</p>
+                <h2>Suivi des territoires</h2>
+              </div>
+            </div>
+            <div class="territory-board" id="territories-list"></div>
+          </section>
+
+          <section class="panel" id="users">
+            <div class="panel__header">
+              <div>
+                <p class="eyebrow">Utilisateurs</p>
+                <h2>Rôles et accès</h2>
+              </div>
+            </div>
+            <div class="role-grid" id="roles-list"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="offline-banner" id="offline-banner" role="status" hidden>
+      Mode hors ligne actif — les données seront synchronisées au retour de la connexion.
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

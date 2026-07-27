@@ -1,326 +1,95 @@
-Projet : AssemblyHub
-
-Objectif
-
-Créer une application web moderne (PWA) destinée à une seule congrégation afin de centraliser la gestion des informations utiles à la vie de la congrégation.
-
-L’application doit être accessible depuis un navigateur web, mais également installable sur téléphone (Android/iPhone) comme une application grâce à la technologie PWA.
-
-Le projet est privé et destiné exclusivement aux membres de la congrégation autorisés à y accéder.
-
-⸻
-
-Stack technique
-
-Frontend
-
-* HTML5
-* CSS3
-* JavaScript Vanilla (sans framework)
-* Responsive Design
-* Progressive Web App (PWA)
-
-Backend
-
-* Firebase Authentication
-* Cloud Firestore
-* Firebase Storage
-
-Hébergement
-
-* GitHub Pages (frontend)
-* Firebase (base de données et authentification)
-
-⸻
-
-Gestion des rôles
-
-Administrateur
-
-L’administrateur principal est le créateur de l’application.
-
-Permissions :
-
-* gestion complète des utilisateurs ;
-* ajout/suppression d’éditeurs ;
-* création/modification/suppression de toutes les données ;
-* publication de documents ;
-* gestion des réunions ;
-* gestion des territoires ;
-* accès à toutes les statistiques.
-
-⸻
-
-Éditeurs
-
-Les éditeurs sont désignés par l’administrateur.
-
-Permissions :
-
-* modifier uniquement les modules qui leur sont attribués ;
-* ajouter ou modifier des informations dans les modules autorisés.
-
-Exemples :
-
-* responsable territoires ;
-* responsable réunions ;
-* responsable documents.
-
-⸻
-
-Membres
-
-Tous les frères et sœurs de la congrégation.
-
-Permissions :
-
-* consulter les informations ;
-* consulter leurs affectations ;
-* télécharger les documents autorisés ;
-* consulter les territoires attribués.
-
-Aucune modification des données.
-
-⸻
-
-Fonctionnalités V1
-
-1. Tableau de bord
-
-Afficher :
-
-* prochaines réunions ;
-* affectations personnelles ;
-* nouveaux documents ;
-* annonces importantes ;
-* raccourcis vers les différents modules.
-
-⸻
-
-2. Gestion des utilisateurs
-
-Chaque utilisateur possède :
-
-* prénom ;
-* nom ;
-* email ;
-* téléphone (facultatif) ;
-* groupe ;
-* rôle (membre, éditeur, administrateur) ;
-* privilèges éventuels.
-
-Fonctionnalités :
-
-* création ;
-* modification ;
-* désactivation ;
-* recherche.
-
-⸻
-
-3. Gestion des réunions
-
-Création des réunions avec :
-
-* date ;
-* type de réunion ;
-* commentaires éventuels.
-
-Gestion des affectations :
-
-* président ;
-* lecteur ;
-* son ;
-* vidéo ;
-* accueil ;
-* micros ;
-* prière ;
-* autres responsabilités.
-
-Affichage :
-
-* vue liste ;
-* vue calendrier ;
-* vue mensuelle.
-
-⸻
-
-4. Gestion des sujets
-
-Pour les parties de la réunion Vie et ministère.
-
-Chaque sujet contient :
-
-* date ;
-* type de sujet ;
-* personne assignée ;
-* accompagnant ;
-* statut.
-
-Historique consultable.
-
-⸻
-
-5. Gestion des territoires
-
-Pour chaque territoire :
-
-* numéro ;
-* description ;
-* statut ;
-* responsable ;
-* date d’attribution ;
-* date de retour ;
-* notes.
-
-Statuts possibles :
-
-* disponible ;
-* attribué ;
-* en cours ;
-* terminé.
-
-⸻
-
-6. Gestion documentaire
-
-Stockage de documents dans Firebase Storage.
-
-Catégories :
-
-* réunions ;
-* assemblées ;
-* territoires ;
-* annonces ;
-* divers.
-
-Fonctionnalités :
-
-* recherche ;
-* téléchargement ;
-* aperçu ;
-* classement par catégorie.
-
-⸻
-
-7. Annonces
-
-Création d’annonces visibles sur le tableau de bord.
-
-Exemples :
-
-* changement d’horaire ;
-* réunion spéciale ;
-* information importante.
-
-⸻
-
-Fonctionnalités PWA
-
-* installation sur téléphone ;
-* mode hors ligne ;
-* synchronisation automatique lors du retour de la connexion ;
-* mise à jour automatique de l’application.
-
-⸻
-
-Structure Firestore
-
-users/
-uid
-
-meetings/
-meetingId
-
-assignments/
-assignmentId
-
-talks/
-talkId
-
-territories/
-territoryId
-
-documents/
-documentId
-
-announcements/
-announcementId
-
-⸻
-
-Interface utilisateur
-
-Menu principal :
-
-* Tableau de bord
-* Réunions
-* Affectations
-* Sujets
-* Territoires
-* Documents
-* Annonces
-* Utilisateurs
-* Paramètres
-
-Design :
-
-* moderne ;
-* sobre ;
-* professionnel ;
-* optimisé mobile ;
-* mode clair et sombre.
-
-⸻
-
-Sécurité
-
-* authentification obligatoire ;
-* contrôle des rôles via Firestore Security Rules ;
-* seuls les administrateurs peuvent gérer les rôles ;
-* les membres ne peuvent modifier aucune donnée ;
-* journalisation des modifications importantes.
-
-⸻
-
-Version 1.0 (MVP)
-
-Objectif :
-
-Permettre à toute la congrégation de :
-
-* se connecter ;
-* consulter les réunions ;
-* consulter leurs affectations ;
-* consulter les documents ;
-* consulter les annonces.
-
-L’administrateur doit pouvoir :
-
-* gérer les utilisateurs ;
-* publier des documents ;
-* gérer les réunions ;
-* gérer les affectations.
-
-⸻
-
-Évolutions futures (V2)
-
-* notifications push ;
-* export PDF ;
-* export Excel ;
-* calendrier synchronisable ;
-* statistiques ;
-* gestion avancée des territoires ;
-* carte interactive OpenStreetMap ;
-* historique détaillé ;
-* sauvegardes automatiques ;
-* application multilingue (français, russe, anglais).
-
-⸻
-
-Nom du projet
-
-AssemblyHub
-
-Application PWA privée de gestion et d’organisation pour une congrégation, avec gestion des utilisateurs, réunions, affectations, territoires et documents, synchronisée via Firebase.
+# AssemblyHub
+
+AssemblyHub est une application web moderne (PWA) privée destinée à une seule congrégation. Elle centralise les informations utiles à la vie de la congrégation : réunions, affectations, sujets, territoires, documents, annonces et utilisateurs.
+
+## Objectif du MVP 1.0
+
+Permettre aux membres autorisés de :
+
+- se connecter ;
+- consulter les réunions ;
+- consulter leurs affectations ;
+- consulter les documents ;
+- consulter les annonces.
+
+L’administrateur peut gérer les utilisateurs, publier des documents, gérer les réunions et gérer les affectations.
+
+## Stack technique
+
+- **Frontend** : HTML5, CSS3, JavaScript Vanilla, responsive design, PWA.
+- **Backend prévu** : Firebase Authentication, Cloud Firestore, Firebase Storage.
+- **Hébergement** : GitHub Pages pour le frontend, Firebase pour les données et l’authentification.
+
+## Fonctionnalités incluses dans ce socle
+
+- Tableau de bord avec indicateurs clés.
+- Navigation principale : tableau de bord, réunions, affectations, sujets, territoires, documents, annonces, utilisateurs et paramètres.
+- Cartes de réunions, affectations, annonces, documents, territoires et rôles.
+- Recherche locale dans les documents.
+- Mode clair / sombre avec persistance dans `localStorage`.
+- Manifest PWA et service worker pour l’installation et le cache hors ligne.
+- Règles Firestore et Storage de départ pour le contrôle d’accès par rôle.
+- Fichier d’exemple de configuration Firebase.
+
+## Structure du projet
+
+```text
+.
+├── index.html              # Interface principale de la PWA
+├── styles.css              # Design responsive clair/sombre
+├── app.js                  # Rendu Vanilla JS et interactions
+├── service-worker.js       # Cache PWA et fallback hors ligne
+├── manifest.webmanifest    # Métadonnées d’installation PWA
+├── firebase.example.js     # Modèle de configuration Firebase
+├── firestore.rules         # Règles Firestore proposées
+├── storage.rules           # Règles Firebase Storage proposées
+└── assets/icon.svg         # Icône de l’application
+```
+
+## Lancer localement
+
+Servez le dossier avec un serveur statique afin que le service worker fonctionne correctement :
+
+```bash
+python3 -m http.server 8000
+```
+
+Puis ouvrez <http://localhost:8000>.
+
+## Brancher Firebase
+
+1. Créez un projet Firebase.
+2. Activez Firebase Authentication, Cloud Firestore et Firebase Storage.
+3. Copiez `firebase.example.js` vers `firebase-config.js`.
+4. Remplacez les valeurs d’exemple par la configuration réelle du projet.
+5. Déployez `firestore.rules` et `storage.rules` avec la Firebase CLI.
+6. Ajoutez ensuite les appels SDK dans `app.js` pour remplacer les données de démonstration.
+
+## Collections Firestore prévues
+
+- `users/{uid}`
+- `meetings/{meetingId}`
+- `assignments/{assignmentId}`
+- `talks/{talkId}`
+- `territories/{territoryId}`
+- `documents/{documentId}`
+- `announcements/{announcementId}`
+- `auditLogs/{logId}`
+
+## Rôles
+
+- **Administrateur** : gestion complète des utilisateurs, rôles, données, documents, réunions, territoires et statistiques.
+- **Éditeur** : modification limitée aux modules attribués par l’administrateur.
+- **Membre** : consultation uniquement des informations autorisées.
+
+## Évolutions futures
+
+- Notifications push.
+- Export PDF et Excel.
+- Calendrier synchronisable.
+- Statistiques.
+- Gestion avancée des territoires.
+- Carte interactive OpenStreetMap.
+- Historique détaillé.
+- Sauvegardes automatiques.
+- Interface multilingue : français, russe, anglais.
