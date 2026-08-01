@@ -40,27 +40,35 @@ let authState = {
   users: [],
   error: '',
   notice: '',
+  editingUserId: null,
 };
 let firebaseApi = null;
 
 const roleLabels = {
   admin: 'Administrateur',
+  administrateur: 'Administrateur',
   ancien: 'Ancien',
+  editeur: 'Éditeur',
+  éditeur: 'Éditeur',
   frere: 'Frère',
   proclamateur: 'Proclamateur',
+  visiteur: 'Visiteur',
 };
 
+const editableRoles = ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'];
+const roleAliases = { admin: 'administrateur', 'éditeur': 'editeur', frere: 'proclamateur' };
+
 const routePermissions = {
-  '/': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/reunions': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/affectations': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/documents': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/annonces': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/sujets': ['admin', 'ancien', 'frere'],
-  '/territoires': ['admin', 'ancien', 'frere'],
-  '/annuaire': ['admin', 'ancien', 'frere'],
-  '/profil': ['admin', 'ancien', 'frere', 'proclamateur'],
-  '/admin': ['admin'],
+  '/': ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'],
+  '/reunions': ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'],
+  '/affectations': ['administrateur', 'ancien', 'editeur', 'proclamateur'],
+  '/documents': ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'],
+  '/annonces': ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'],
+  '/sujets': ['administrateur', 'ancien', 'editeur'],
+  '/territoires': ['administrateur', 'ancien', 'editeur'],
+  '/annuaire': ['administrateur', 'ancien', 'editeur', 'proclamateur'],
+  '/profil': ['administrateur', 'ancien', 'editeur', 'proclamateur', 'visiteur'],
+  '/admin': ['administrateur'],
 };
 
 const store = {
@@ -118,12 +126,16 @@ const shortDate = (value) => shortDateFormatter.format(new Date(value));
 const isFuture = (value) => new Date(value) >= new Date('2026-07-27T00:00:00Z');
 
 
+function normalizeRole(role) {
+  return roleAliases[role] || role || 'visiteur';
+}
+
 function userRole() {
-  return authState.userDoc?.role || currentUser.role || 'proclamateur';
+  return normalizeRole(authState.userDoc?.role || currentUser.role || 'visiteur');
 }
 
 function isAdmin() {
-  return userRole() === 'admin';
+  return userRole() === 'administrateur';
 }
 
 function canEdit() {
@@ -369,54 +381,88 @@ function renderProfile() {
   return pageShell('Mon profil', 'Vos informations personnelles et les actions de sécurité du compte.', `
     <section class="grid">
       <div class="span-8">${infoCard(`${currentUser.firstName} ${currentUser.lastName}`, `${currentUser.email}<br>${currentUser.phone}<br>${currentUser.group}`, [{ label: currentUser.role }, { label: 'Modifier mes informations' }])}</div>
-      <div class="panel span-4"><h2>Sécurité</h2><p class="lead">Le changement de mot de passe sera relié à Firebase Authentication.</p><button class="action-button" type="button">Changer mon mot de passe</button></div>
+      <div class="panel span-4"><h2>Sécurité</h2><p class="lead">Le changement de mot de passe est géré par Firebase Authentication.</p><div class="quick-row"><button class="action-button" id="profile-reset-password" type="button">Changer mon mot de passe</button><button class="action-button action-button--soft" id="logout-button" type="button">Se déconnecter</button></div></div>
     </section>
   `, '/profil');
 }
 
+function formatTimestamp(value) {
+  if (!value) return '—';
+  if (typeof value.toDate === 'function') return shortDateFormatter.format(value.toDate());
+  if (typeof value === 'string') return shortDateFormatter.format(new Date(value));
+  return '—';
+}
+
+function userFirstName(user) {
+  return user.firstName || user.prenom || '';
+}
+
+function userLastName(user) {
+  return user.lastName || user.nom || '';
+}
+
 function renderAdmin() {
   return pageShell('Administration', 'Espace réservé aux administrateurs pour gérer les utilisateurs, les modules, les paramètres et les journaux d’activité.', `
-    <section class="grid">
-      <div class="panel span-8">
-        <div class="panel-header"><h2>Utilisateurs</h2><button class="action-button" type="button" id="refresh-users">Actualiser</button></div>
-        <div class="card-list" id="admin-users-list">${renderUsersList()}</div>
-      </div>
-      <form class="panel span-4" id="create-user-form">
-        <h2>Ajouter un utilisateur</h2>
-        <p class="lead">La création du compte Auth doit passer par une Cloud Function sécurisée. Le frontend appelle <code>createAssemblyHubUser</code> si elle est déployée.</p>
-        <label class="field"><span>Prénom</span><input name="prenom" required /></label>
-        <label class="field"><span>Nom</span><input name="nom" required /></label>
+    <section class="panel">
+      <div class="panel-header"><h2>Administration → Utilisateurs</h2><button class="action-button" type="button" id="refresh-users">Actualiser</button></div>
+      ${appMessage('notice', authState.notice)}${appMessage('error', authState.error)}
+      <div class="users-table-wrap">${renderUsersTable()}</div>
+    </section>
+    <section class="grid" style="margin-top:16px">
+      <form class="panel span-6" id="create-user-form">
+        <h2>Créer l’utilisateur</h2>
+        <p class="lead">Le compte Firebase Auth est créé par la Cloud Function sécurisée <code>createAssemblyHubUser</code>. Si elle n’est pas encore déployée, l’application crée uniquement le profil Firestore et envoie un email de réinitialisation si le compte Auth existe déjà.</p>
+        <label class="field"><span>Prénom</span><input name="firstName" required /></label>
+        <label class="field"><span>Nom</span><input name="lastName" required /></label>
         <label class="field"><span>Email</span><input name="email" type="email" required /></label>
-        <label class="field"><span>Rôle</span><select name="role"><option value="proclamateur">Proclamateur</option><option value="frere">Frère</option><option value="ancien">Ancien</option><option value="admin">Admin</option></select></label>
-        <label class="check-row"><input name="editor" type="checkbox" /> <span>Éditeur autorisé</span></label>
-        <button class="action-button" type="submit">Créer et envoyer l’email</button>
+        <label class="field"><span>Rôle</span><select name="role">${editableRoles.map((role) => `<option value="${role}">${roleLabels[role]}</option>`).join('')}</select></label>
+        <label class="check-row"><input name="editor" type="checkbox" /> <span>Éditeur</span></label>
+        <button class="action-button" type="submit">Créer l’utilisateur</button>
       </form>
+      ${renderEditUserPanel()}
     </section>
     <section class="admin-grid" style="margin-top:16px">${['Réunions', 'Affectations', 'Sujets', 'Territoires', 'Documents', 'Annonces', 'Paramètres', 'Journaux d’activité'].map((label) => `<article class="admin-tile"><h3>${label}</h3><p class="lead">Gestion ${label.toLowerCase()}</p></article>`).join('')}</section>
     <section class="panel" style="margin-top:16px"><div class="panel-header"><h2>Derniers journaux</h2></div><div class="card-list">${store.auditLogs.map((log) => infoCard(`${log.action} · ${log.module}`, `${log.user} · ${log.date}`, [{ label: `Ancien : ${log.before}` }, { label: `Nouveau : ${log.after}` }])).join('')}</div></section>
   `, '/admin');
 }
 
-function renderUsersList() {
-  if (!authState.users.length) {
-    return '<div class="empty-state">Aucun utilisateur chargé pour le moment.</div>';
-  }
-
-  return authState.users.map((user) => `
-    <article class="info-card user-row" data-user-id="${user.uid}">
-      <div>
-        <h3>${user.prenom || ''} ${user.nom || ''}</h3>
-        <p>${user.email} · ${user.groupe || 'Aucun groupe'}</p>
-        <div class="card__meta"><span class="badge">${roleLabels[user.role] || user.role}</span><span class="badge ${user.editor ? 'badge--success' : ''}">${user.editor ? 'Éditeur' : 'Lecture'}</span><span class="badge ${user.active === false ? 'badge--danger' : 'badge--success'}">${user.active === false ? 'Désactivé' : 'Actif'}</span></div>
-      </div>
-      <div class="user-actions">
-        <button class="action-button action-button--soft" type="button" data-user-action="toggle" data-user-id="${user.uid}">${user.active === false ? 'Activer' : 'Désactiver'}</button>
-        <button class="action-button action-button--soft" type="button" data-user-action="editor" data-user-id="${user.uid}">${user.editor ? 'Retirer éditeur' : 'Rendre éditeur'}</button>
-        <button class="action-button action-button--danger" type="button" data-user-action="delete" data-user-id="${user.uid}">Supprimer</button>
-      </div>
-    </article>`).join('');
+function renderUsersTable() {
+  if (!authState.users.length) return '<div class="empty-state">Aucun utilisateur chargé pour le moment.</div>';
+  return `<table class="users-table">
+    <thead><tr><th>Nom</th><th>Prénom</th><th>Email</th><th>Rôle</th><th>Éditeur</th><th>Statut</th><th>Créé le</th><th>Actions</th></tr></thead>
+    <tbody>${authState.users.map((user) => `
+      <tr>
+        <td data-label="Nom">${userLastName(user) || '—'}</td>
+        <td data-label="Prénom">${userFirstName(user) || '—'}</td>
+        <td data-label="Email">${user.email || '—'}</td>
+        <td data-label="Rôle"><span class="badge">${roleLabels[normalizeRole(user.role)] || user.role}</span></td>
+        <td data-label="Éditeur">${user.editor ? 'Oui' : 'Non'}</td>
+        <td data-label="Statut"><span class="badge ${user.active === false ? 'badge--danger' : 'badge--success'}">${user.active === false ? 'Désactivé' : 'Actif'}</span></td>
+        <td data-label="Créé le">${formatTimestamp(user.createdAt)}</td>
+        <td data-label="Actions"><div class="user-actions">
+          <button class="action-button action-button--soft" type="button" data-user-action="edit" data-user-id="${user.uid}">Modifier</button>
+          <button class="action-button action-button--soft" type="button" data-user-action="toggle" data-user-id="${user.uid}">${user.active === false ? 'Réactiver' : 'Désactiver'}</button>
+          <button class="action-button action-button--soft" type="button" data-user-action="reset" data-user-id="${user.uid}">Réinitialiser mot de passe</button>
+          <button class="action-button action-button--danger" type="button" data-user-action="delete" data-user-id="${user.uid}">Supprimer définitivement</button>
+        </div></td>
+      </tr>`).join('')}</tbody>
+  </table>`;
 }
 
+function renderEditUserPanel() {
+  const user = authState.users.find((entry) => entry.uid === authState.editingUserId);
+  if (!user) return '<div class="panel span-6"><h2>Modifier un utilisateur</h2><p class="lead">Sélectionnez “Modifier” dans le tableau pour éditer un profil.</p></div>';
+  return `<form class="panel span-6" id="edit-user-form" data-user-id="${user.uid}">
+    <h2>Modifier ${userFirstName(user)} ${userLastName(user)}</h2>
+    <label class="field"><span>Prénom</span><input name="firstName" value="${userFirstName(user)}" required /></label>
+    <label class="field"><span>Nom</span><input name="lastName" value="${userLastName(user)}" required /></label>
+    <label class="field"><span>Email</span><input name="email" type="email" value="${user.email || ''}" required /></label>
+    <label class="field"><span>Rôle</span><select name="role">${editableRoles.map((role) => `<option value="${role}" ${normalizeRole(user.role) === role ? 'selected' : ''}>${roleLabels[role]}</option>`).join('')}</select></label>
+    <label class="check-row"><input name="editor" type="checkbox" ${user.editor ? 'checked' : ''} /> <span>Éditeur</span></label>
+    <label class="check-row"><input name="active" type="checkbox" ${user.active === false ? '' : 'checked'} /> <span>Actif</span></label>
+    <div class="quick-row"><button class="action-button" type="submit">Enregistrer</button><button class="action-button action-button--soft" type="button" id="cancel-edit-user">Annuler</button></div>
+  </form>`;
+}
 
 function renderLoading() {
   return `<section class="auth-layout"><div class="auth-card"><p class="kicker">AssemblyHub</p><h1>Chargement sécurisé…</h1><p class="lead">Connexion à Firebase Authentication et Firestore.</p></div></section>`;
@@ -492,8 +538,10 @@ function renderRoute() {
   }
 
   if (authState.userDoc?.active === false) {
+    firebaseApi?.authModule.signOut(firebaseApi.auth);
     document.title = 'Compte désactivé · AssemblyHub';
-    app.innerHTML = renderAccessDenied('Votre compte est désactivé. Contactez un administrateur.');
+    authState.error = 'Votre accès a été désactivé. Contactez un administrateur.';
+    app.innerHTML = renderLogin();
     bindAuthInteractions();
     return;
   }
@@ -526,6 +574,22 @@ function renderNavigationState() {
 }
 
 function bindPageInteractions(path) {
+  if (path === '/profil') {
+    document.querySelector('#logout-button')?.addEventListener('click', async () => {
+      await firebaseApi.authModule.signOut(firebaseApi.auth);
+      authState.firebaseUser = null;
+      authState.userDoc = null;
+      currentUser = demoUser;
+      authState.mode = 'login';
+      renderRoute();
+    });
+    document.querySelector('#profile-reset-password')?.addEventListener('click', async () => {
+      await firebaseApi.authModule.sendPasswordResetEmail(firebaseApi.auth, currentUser.email);
+      authState.notice = 'Email de réinitialisation du mot de passe envoyé.';
+      renderRoute();
+    });
+  }
+
   if (path === '/admin') {
     bindAdminInteractions();
   }
@@ -589,7 +653,7 @@ async function initializeFirebaseAuth() {
     const auth = authModule.getAuth(firebaseApp);
     const db = firestoreModule.getFirestore(firebaseApp);
     const functions = functionsModule.getFunctions(firebaseApp, 'europe-west1');
-    firebaseApi = { authModule, firestoreModule, functionsModule, app: firebaseApp, auth, db, functions };
+    firebaseApi = { appModule, authModule, firestoreModule, functionsModule, app: firebaseApp, auth, db, functions };
     await detectInitialMode();
     authModule.onAuthStateChanged(auth, handleAuthStateChanged);
   } catch (error) {
@@ -607,7 +671,7 @@ async function detectInitialMode() {
 
 async function handleAuthStateChanged(firebaseUser) {
   authState.firebaseUser = firebaseUser;
-  authState.error = '';
+  if (firebaseUser) authState.error = '';
   if (!firebaseUser) {
     currentUser = demoUser;
     authState.userDoc = null;
@@ -631,6 +695,13 @@ async function handleAuthStateChanged(firebaseUser) {
   }
 
   authState.userDoc = { uid: firebaseUser.uid, ...snapshot.data() };
+  if (authState.userDoc.active === false) {
+    authState.error = 'Votre accès a été désactivé. Contactez un administrateur.';
+    await firebaseApi.authModule.signOut(firebaseApi.auth);
+    authState.mode = 'login';
+    renderRoute();
+    return;
+  }
   currentUser = mapUserDoc(firebaseUser, authState.userDoc);
   await updateDoc(ref, { lastLogin: serverTimestamp() });
   authState.mode = 'app';
@@ -678,10 +749,12 @@ function bindAuthInteractions() {
       const credential = await firebaseApi.authModule.createUserWithEmailAndPassword(firebaseApi.auth, form.get('email'), form.get('password'));
       const { doc, serverTimestamp, setDoc } = firebaseApi.firestoreModule;
       const adminProfile = {
+        firstName: form.get('prenom'),
+        lastName: form.get('nom'),
         prenom: form.get('prenom'),
         nom: form.get('nom'),
         email: form.get('email'),
-        role: 'admin',
+        role: 'administrateur',
         editor: true,
         active: true,
         createdAt: serverTimestamp(),
@@ -706,6 +779,7 @@ function bindAuthInteractions() {
 
 async function bindAdminInteractions() {
   document.querySelector('#refresh-users')?.addEventListener('click', async () => {
+    authState.error = '';
     await loadUsers();
     renderRoute();
   });
@@ -713,16 +787,18 @@ async function bindAdminInteractions() {
   document.querySelector('#create-user-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const payload = {
+      firstName: form.get('firstName'),
+      lastName: form.get('lastName'),
+      email: form.get('email'),
+      role: form.get('role'),
+      editor: form.get('editor') === 'on',
+      active: true,
+    };
     try {
-      const callable = firebaseApi.functionsModule.httpsCallable(firebaseApi.functions, 'createAssemblyHubUser');
-      await callable({
-        prenom: form.get('prenom'),
-        nom: form.get('nom'),
-        email: form.get('email'),
-        role: form.get('role'),
-        editor: form.get('editor') === 'on',
-      });
-      authState.notice = 'Utilisateur créé. Un email de définition du mot de passe doit être envoyé par la fonction sécurisée.';
+      await createUserSecurely(payload);
+      authState.notice = 'Utilisateur créé ou transmis à la fonction sécurisée. Un email de définition/réinitialisation du mot de passe a été envoyé si possible.';
+      authState.error = '';
       await loadUsers();
       renderRoute();
     } catch (error) {
@@ -731,17 +807,102 @@ async function bindAdminInteractions() {
     }
   });
 
+  document.querySelector('#edit-user-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const { doc, updateDoc } = firebaseApi.firestoreModule;
+    await updateDoc(doc(firebaseApi.db, 'users', event.currentTarget.dataset.userId), {
+      firstName: form.get('firstName'),
+      lastName: form.get('lastName'),
+      prenom: form.get('firstName'),
+      nom: form.get('lastName'),
+      email: form.get('email'),
+      role: form.get('role'),
+      editor: form.get('editor') === 'on',
+      active: form.get('active') === 'on',
+    });
+    authState.notice = 'Utilisateur modifié.';
+    authState.editingUserId = null;
+    await loadUsers();
+    renderRoute();
+  });
+
+  document.querySelector('#cancel-edit-user')?.addEventListener('click', () => {
+    authState.editingUserId = null;
+    renderRoute();
+  });
+
   document.querySelectorAll('[data-user-action]').forEach((button) => button.addEventListener('click', async () => {
     const user = authState.users.find((entry) => entry.uid === button.dataset.userId);
     if (!user) return;
+    authState.error = '';
+    authState.notice = '';
+    if (button.dataset.userAction === 'edit') {
+      authState.editingUserId = user.uid;
+      renderRoute();
+      return;
+    }
+    if (button.dataset.userAction === 'reset') {
+      await firebaseApi.authModule.sendPasswordResetEmail(firebaseApi.auth, user.email);
+      authState.notice = `Email de réinitialisation envoyé à ${user.email}.`;
+      renderRoute();
+      return;
+    }
     const { deleteDoc, doc, updateDoc } = firebaseApi.firestoreModule;
     const ref = doc(firebaseApi.db, 'users', user.uid);
-    if (button.dataset.userAction === 'toggle') await updateDoc(ref, { active: user.active === false });
-    if (button.dataset.userAction === 'editor') await updateDoc(ref, { editor: !user.editor });
-    if (button.dataset.userAction === 'delete' && confirm('Supprimer ce profil Firestore ? La suppression du compte Auth doit être faite côté serveur.')) await deleteDoc(ref);
+    if (button.dataset.userAction === 'toggle') {
+      await updateDoc(ref, { active: user.active === false });
+      authState.notice = user.active === false ? 'Utilisateur réactivé.' : 'Utilisateur désactivé.';
+    }
+    if (button.dataset.userAction === 'delete') {
+      if (!confirm(`Supprimer définitivement ${user.email} ?`)) return;
+      await deleteUserSecurely(user);
+      authState.notice = 'Suppression demandée. Le document Firestore a été supprimé lorsque les permissions le permettent.';
+    }
     await loadUsers();
     renderRoute();
   }));
+}
+
+async function createUserSecurely(payload) {
+  const { doc, serverTimestamp, setDoc } = firebaseApi.firestoreModule;
+  try {
+    const callable = firebaseApi.functionsModule.httpsCallable(firebaseApi.functions, 'createAssemblyHubUser');
+    await callable(payload);
+    return;
+  } catch (error) {
+    if (!String(error?.code || '').includes('functions/not-found')) throw error;
+  }
+
+  const temporaryPassword = crypto.getRandomValues(new Uint32Array(4)).join('-');
+  const secondaryApp = firebaseApi.appModule.initializeApp(firebaseConfig, `create-user-${Date.now()}`);
+  const secondaryAuth = firebaseApi.authModule.getAuth(secondaryApp);
+  try {
+    const credential = await firebaseApi.authModule.createUserWithEmailAndPassword(secondaryAuth, payload.email, temporaryPassword);
+    await firebaseApi.authModule.signOut(secondaryAuth);
+    await setDoc(doc(firebaseApi.db, 'users', credential.user.uid), {
+      ...payload,
+      prenom: payload.firstName,
+      nom: payload.lastName,
+      createdAt: serverTimestamp(),
+    });
+    await firebaseApi.authModule.sendPasswordResetEmail(firebaseApi.auth, payload.email);
+  } finally {
+    await firebaseApi.appModule.deleteApp(secondaryApp);
+  }
+}
+
+async function deleteUserSecurely(user) {
+  try {
+    const callable = firebaseApi.functionsModule.httpsCallable(firebaseApi.functions, 'deleteAssemblyHubUser');
+    await callable({ uid: user.uid });
+    return;
+  } catch (error) {
+    if (!String(error?.code || '').includes('functions/not-found')) throw error;
+  }
+
+  const { deleteDoc, doc } = firebaseApi.firestoreModule;
+  await deleteDoc(doc(firebaseApi.db, 'users', user.uid));
 }
 
 function friendlyFirebaseError(error) {

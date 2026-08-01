@@ -13,12 +13,16 @@ service firebase.storage {
       return signedIn() && userDoc().data.active == true ? userDoc().data.role : null;
     }
 
+    function isAdminRole(role) {
+      return role in ['admin', 'administrateur'];
+    }
+
     function canReadDocuments() {
-      return activeRole() in ['admin', 'ancien', 'frere', 'proclamateur'];
+      return activeRole() in ['admin', 'administrateur', 'ancien', 'editeur', 'éditeur', 'frere', 'proclamateur', 'visiteur'];
     }
 
     function canManageDocuments() {
-      return signedIn() && (activeRole() == 'admin' || (userDoc().data.editor == true && 'documents' in userDoc().data.privileges));
+      return signedIn() && (isAdminRole(activeRole()) || (userDoc().data.editor == true && 'documents' in userDoc().data.privileges));
     }
 
     match /documents/{allPaths=**} {

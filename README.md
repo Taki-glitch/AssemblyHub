@@ -98,12 +98,20 @@ Au démarrage, l’application lit `settings/bootstrap`. Si aucun administrateur
 
 Les profils utilisateurs sont stockés dans `users/{uid}` avec les champs principaux : `prenom`, `nom`, `email`, `role`, `editor`, `active`, `createdAt` et `lastLogin`. Les rôles pris en charge sont :
 
-- `admin` : accès complet à l’application et à l’administration.
+- `administrateur` (`admin` reste accepté pour rétrocompatibilité) : accès complet à l’application et à l’administration.
 - `ancien` : accès aux contenus réservés aux anciens ; peut éditer si `editor` vaut `true` et si le module est listé dans `privileges`.
-- `frere` : lecture des contenus de congrégation autorisés.
-- `proclamateur` : lecture limitée aux contenus qui lui sont destinés.
+- `editeur` / `éditeur` : rôle éditorial dédié, selon les privilèges attribués.
+- `proclamateur` : lecture des contenus autorisés.
+- `visiteur` : consultation limitée.
 
 La création des utilisateurs après le premier administrateur doit passer par une logique serveur sécurisée, par exemple une Cloud Function callable nommée `createAssemblyHubUser`. Le compte de service Firebase Admin (`firebase-adminsdk-fbsvc@assemblyhub-acfb0.iam.gserviceaccount.com`) doit rester côté serveur et ne doit jamais être inclus dans les fichiers du frontend.
+
+
+## Administration des utilisateurs
+
+La page `/admin` contient la section **Administration → Utilisateurs** réservée aux administrateurs. Elle affiche un tableau responsive avec nom, prénom, email, rôle, statut éditeur, statut actif/désactivé et date de création. Les actions disponibles sont : modifier, désactiver/réactiver, réinitialiser le mot de passe et supprimer définitivement.
+
+La création et la suppression complètes des comptes Firebase Authentication doivent idéalement passer par des Cloud Functions sécurisées (`createAssemblyHubUser` et `deleteAssemblyHubUser`). Le frontend inclut ces hooks et conserve une compatibilité progressive, mais le compte de service Firebase Admin doit rester strictement côté serveur.
 
 ## Collections Firestore prévues
 
