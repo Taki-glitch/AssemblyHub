@@ -1,0 +1,19 @@
+{
+  "name": "AssemblyHub",
+  "short_name": "AssemblyHub",
+  "description": "Application PWA privée de gestion pour une congrégation.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
