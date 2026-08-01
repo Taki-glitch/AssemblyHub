@@ -1,6 +1,5 @@
 // Configuration publique Firebase Web pour AssemblyHub.
-// Copiez ce fichier vers firebase-config.js si vous devez changer de projet Firebase.
-// N'ajoutez jamais de clé de compte de service Firebase Admin dans le frontend.
+// Ne placez jamais de compte de service Firebase Admin dans le frontend.
 export const firebaseConfig = {
   apiKey: 'AIzaSyAzXnpEMCQYBpJtyGN2_90y7hY3MsocrKc',
   authDomain: 'assemblyhub-acfb0.firebaseapp.com',

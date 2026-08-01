@@ -7,6 +7,7 @@ const APP_SHELL = [
   '/404.html',
   '/styles.css',
   '/app.js',
+  '/firebase-config.js',
   '/manifest.webmanifest',
   '/assets/icon.svg',
 ].map(withBase);

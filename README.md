@@ -58,6 +58,7 @@ Sur mobile, la navigation principale est une barre inférieure fixe : Accueil, R
 ├── app.js                  # Pages, routage, données de démonstration et interactions
 ├── service-worker.js       # Cache PWA et routes hors ligne
 ├── manifest.webmanifest    # Métadonnées d’installation PWA
+├── firebase-config.js      # Configuration Firebase Web publique
 ├── firebase.example.js     # Modèle de configuration Firebase
 ├── firestore.rules         # Règles Firestore proposées
 ├── storage.rules           # Règles Firebase Storage proposées
@@ -87,6 +88,22 @@ Les fichiers HTML utilisent des chemins relatifs (`styles.css`, `../styles.css`,
 4. Remplacez les valeurs d’exemple par la configuration réelle du projet.
 5. Déployez `firestore.rules` et `storage.rules` avec la Firebase CLI.
 6. Remplacez progressivement les données de démonstration de `app.js` par des appels Firebase.
+
+
+## Authentification et rôles Firebase
+
+AssemblyHub utilise Firebase Authentication avec le fournisseur email / mot de passe. Les inscriptions publiques ne sont pas exposées dans l’interface : les membres se connectent avec un compte fourni par un administrateur.
+
+Au démarrage, l’application lit `settings/bootstrap`. Si aucun administrateur n’est marqué comme créé, elle affiche l’écran de configuration initiale pour créer le premier compte `admin`, puis crée le document `users/{uid}` correspondant et le marque comme actif.
+
+Les profils utilisateurs sont stockés dans `users/{uid}` avec les champs principaux : `prenom`, `nom`, `email`, `role`, `editor`, `active`, `createdAt` et `lastLogin`. Les rôles pris en charge sont :
+
+- `admin` : accès complet à l’application et à l’administration.
+- `ancien` : accès aux contenus réservés aux anciens ; peut éditer si `editor` vaut `true` et si le module est listé dans `privileges`.
+- `frere` : lecture des contenus de congrégation autorisés.
+- `proclamateur` : lecture limitée aux contenus qui lui sont destinés.
+
+La création des utilisateurs après le premier administrateur doit passer par une logique serveur sécurisée, par exemple une Cloud Function callable nommée `createAssemblyHubUser`. Le compte de service Firebase Admin (`firebase-adminsdk-fbsvc@assemblyhub-acfb0.iam.gserviceaccount.com`) doit rester côté serveur et ne doit jamais être inclus dans les fichiers du frontend.
 
 ## Collections Firestore prévues
 

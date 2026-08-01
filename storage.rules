@@ -9,16 +9,20 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
     }
 
-    function role() {
-      return signedIn() ? userDoc().data.role : null;
+    function activeRole() {
+      return signedIn() && userDoc().data.active == true ? userDoc().data.role : null;
+    }
+
+    function canReadDocuments() {
+      return activeRole() in ['admin', 'ancien', 'frere', 'proclamateur'];
     }
 
     function canManageDocuments() {
-      return role() == 'administrateur' || (role() == 'éditeur' && 'documents' in userDoc().data.privileges);
+      return signedIn() && (activeRole() == 'admin' || (userDoc().data.editor == true && 'documents' in userDoc().data.privileges));
     }
 
     match /documents/{allPaths=**} {
-      allow read: if signedIn();
+      allow read: if canReadDocuments();
       allow write: if canManageDocuments();
     }
   }

@@ -1,4 +1,6 @@
-const scriptUrl = new URL(import.meta.url);
+import { firebaseConfig } from './firebase-config.js';
+
+const scriptUrl = new URL(document.currentScript.src);
 const appBase = scriptUrl.pathname.replace(/\/?app\.js$/, '');
 const normalizedBase = appBase === '/' ? '' : appBase;
 
@@ -15,7 +17,7 @@ const routes = [
   { path: '/admin', label: 'Admin', icon: '⚙', more: true, admin: true },
 ];
 
-const currentUser = {
+const demoUser = {
   uid: 'demo-user',
   firstName: 'Marc',
   lastName: 'Dubois',
@@ -24,7 +26,41 @@ const currentUser = {
   phone: '+33 6 00 00 00 00',
   group: 'Groupe 2',
   role: 'administrateur',
+  active: true,
+  editor: true,
   privileges: ['meetings', 'meetingAssignments', 'talks', 'territories', 'documents', 'announcements'],
+};
+
+let currentUser = demoUser;
+let authState = {
+  ready: false,
+  mode: 'loading',
+  firebaseUser: null,
+  userDoc: null,
+  users: [],
+  error: '',
+  notice: '',
+};
+let firebaseApi = null;
+
+const roleLabels = {
+  admin: 'Administrateur',
+  ancien: 'Ancien',
+  frere: 'Frère',
+  proclamateur: 'Proclamateur',
+};
+
+const routePermissions = {
+  '/': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/reunions': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/affectations': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/documents': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/annonces': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/sujets': ['admin', 'ancien', 'frere'],
+  '/territoires': ['admin', 'ancien', 'frere'],
+  '/annuaire': ['admin', 'ancien', 'frere'],
+  '/profil': ['admin', 'ancien', 'frere', 'proclamateur'],
+  '/admin': ['admin'],
 };
 
 const store = {
@@ -81,6 +117,56 @@ const formatDate = (value) => value === '—' ? value : dateFormatter.format(new
 const shortDate = (value) => shortDateFormatter.format(new Date(value));
 const isFuture = (value) => new Date(value) >= new Date('2026-07-27T00:00:00Z');
 
+
+function userRole() {
+  return authState.userDoc?.role || currentUser.role || 'proclamateur';
+}
+
+function isAdmin() {
+  return userRole() === 'admin';
+}
+
+function canEdit() {
+  return isAdmin() || authState.userDoc?.editor === true;
+}
+
+function canAccessRoute(path) {
+  return (routePermissions[path] || routePermissions['/']).includes(userRole());
+}
+
+function userDisplayName() {
+  return `${currentUser.prenom || currentUser.firstName || ''} ${currentUser.nom || currentUser.lastName || ''}`.trim() || currentUser.email || 'Utilisateur';
+}
+
+function initialsFor(user) {
+  const first = user.prenom || user.firstName || '';
+  const last = user.nom || user.lastName || '';
+  return `${first[0] || ''}${last[0] || ''}`.toUpperCase() || 'AH';
+}
+
+function mapUserDoc(firebaseUser, data = {}) {
+  return {
+    uid: firebaseUser?.uid || data.uid || 'demo-user',
+    firstName: data.prenom || data.firstName || 'Utilisateur',
+    lastName: data.nom || data.lastName || '',
+    prenom: data.prenom || data.firstName || 'Utilisateur',
+    nom: data.nom || data.lastName || '',
+    initials: initialsFor(data),
+    email: data.email || firebaseUser?.email || '',
+    phone: data.telephone || data.phone || '',
+    group: data.groupe || data.group || '',
+    role: data.role || 'proclamateur',
+    editor: data.editor === true,
+    active: data.active !== false,
+    privileges: data.privileges || [],
+  };
+}
+
+function appMessage(type, message) {
+  const tone = type === 'error' ? 'badge--danger' : 'badge--success';
+  return message ? `<div class="auth-message ${tone}">${message}</div>` : '';
+}
+
 function routeToUrl(path) {
   if (path === '/') return `${normalizedBase || '/'}${normalizedBase ? '/' : ''}`;
   return `${normalizedBase}${path}/`;
@@ -133,12 +219,12 @@ function bindLinks(root = document) {
 }
 
 function renderNavigation() {
-  desktopNav.innerHTML = routes.map((route) => navLink(route)).join('');
-  bottomNav.innerHTML = routes.filter((route) => route.primary).map((route) => navLink(route, true)).join('') + `
+  desktopNav.innerHTML = visibleRoutes().map((route) => navLink(route)).join('');
+  bottomNav.innerHTML = visibleRoutes().filter((route) => route.primary).map((route) => navLink(route, true)).join('') + `
     <button type="button" id="open-more" aria-pressed="false">
       <span class="tab-icon">☰</span><span>Plus</span>
     </button>`;
-  document.querySelector('#more-grid').innerHTML = routes.filter((route) => route.more).map((route) => `
+  document.querySelector('#more-grid').innerHTML = visibleRoutes().filter((route) => route.more).map((route) => `
     <a href="${routeToUrl(route.path)}" data-route="${route.path}" data-link><span>${route.icon}</span> ${route.label}</a>`).join('');
   document.querySelector('#open-more').addEventListener('click', openMoreSheet);
   document.querySelector('#close-more').addEventListener('click', closeMoreSheet);
@@ -146,6 +232,11 @@ function renderNavigation() {
     if (event.target === moreSheet) closeMoreSheet();
   });
   bindLinks(document);
+}
+
+function visibleRoutes() {
+  if (!authState.firebaseUser) return routes.filter((route) => route.path === '/');
+  return routes.filter((route) => canAccessRoute(route.path));
 }
 
 function navLink(route, compact = false) {
@@ -284,10 +375,86 @@ function renderProfile() {
 }
 
 function renderAdmin() {
-  return pageShell('Administration', 'Espace réservé aux administrateurs pour gérer les modules, les paramètres et les journaux d’activité.', `
-    <section class="admin-grid">${['Utilisateurs', 'Réunions', 'Affectations', 'Sujets', 'Territoires', 'Documents', 'Annonces', 'Paramètres', 'Journaux d’activité'].map((label) => `<article class="admin-tile"><h3>${label}</h3><p class="lead">Gestion ${label.toLowerCase()}</p></article>`).join('')}</section>
+  return pageShell('Administration', 'Espace réservé aux administrateurs pour gérer les utilisateurs, les modules, les paramètres et les journaux d’activité.', `
+    <section class="grid">
+      <div class="panel span-8">
+        <div class="panel-header"><h2>Utilisateurs</h2><button class="action-button" type="button" id="refresh-users">Actualiser</button></div>
+        <div class="card-list" id="admin-users-list">${renderUsersList()}</div>
+      </div>
+      <form class="panel span-4" id="create-user-form">
+        <h2>Ajouter un utilisateur</h2>
+        <p class="lead">La création du compte Auth doit passer par une Cloud Function sécurisée. Le frontend appelle <code>createAssemblyHubUser</code> si elle est déployée.</p>
+        <label class="field"><span>Prénom</span><input name="prenom" required /></label>
+        <label class="field"><span>Nom</span><input name="nom" required /></label>
+        <label class="field"><span>Email</span><input name="email" type="email" required /></label>
+        <label class="field"><span>Rôle</span><select name="role"><option value="proclamateur">Proclamateur</option><option value="frere">Frère</option><option value="ancien">Ancien</option><option value="admin">Admin</option></select></label>
+        <label class="check-row"><input name="editor" type="checkbox" /> <span>Éditeur autorisé</span></label>
+        <button class="action-button" type="submit">Créer et envoyer l’email</button>
+      </form>
+    </section>
+    <section class="admin-grid" style="margin-top:16px">${['Réunions', 'Affectations', 'Sujets', 'Territoires', 'Documents', 'Annonces', 'Paramètres', 'Journaux d’activité'].map((label) => `<article class="admin-tile"><h3>${label}</h3><p class="lead">Gestion ${label.toLowerCase()}</p></article>`).join('')}</section>
     <section class="panel" style="margin-top:16px"><div class="panel-header"><h2>Derniers journaux</h2></div><div class="card-list">${store.auditLogs.map((log) => infoCard(`${log.action} · ${log.module}`, `${log.user} · ${log.date}`, [{ label: `Ancien : ${log.before}` }, { label: `Nouveau : ${log.after}` }])).join('')}</div></section>
   `, '/admin');
+}
+
+function renderUsersList() {
+  if (!authState.users.length) {
+    return '<div class="empty-state">Aucun utilisateur chargé pour le moment.</div>';
+  }
+
+  return authState.users.map((user) => `
+    <article class="info-card user-row" data-user-id="${user.uid}">
+      <div>
+        <h3>${user.prenom || ''} ${user.nom || ''}</h3>
+        <p>${user.email} · ${user.groupe || 'Aucun groupe'}</p>
+        <div class="card__meta"><span class="badge">${roleLabels[user.role] || user.role}</span><span class="badge ${user.editor ? 'badge--success' : ''}">${user.editor ? 'Éditeur' : 'Lecture'}</span><span class="badge ${user.active === false ? 'badge--danger' : 'badge--success'}">${user.active === false ? 'Désactivé' : 'Actif'}</span></div>
+      </div>
+      <div class="user-actions">
+        <button class="action-button action-button--soft" type="button" data-user-action="toggle" data-user-id="${user.uid}">${user.active === false ? 'Activer' : 'Désactiver'}</button>
+        <button class="action-button action-button--soft" type="button" data-user-action="editor" data-user-id="${user.uid}">${user.editor ? 'Retirer éditeur' : 'Rendre éditeur'}</button>
+        <button class="action-button action-button--danger" type="button" data-user-action="delete" data-user-id="${user.uid}">Supprimer</button>
+      </div>
+    </article>`).join('');
+}
+
+
+function renderLoading() {
+  return `<section class="auth-layout"><div class="auth-card"><p class="kicker">AssemblyHub</p><h1>Chargement sécurisé…</h1><p class="lead">Connexion à Firebase Authentication et Firestore.</p></div></section>`;
+}
+
+function renderLogin() {
+  return `<section class="auth-layout">
+    <form class="auth-card" id="login-form">
+      <p class="kicker">Connexion privée</p>
+      <h1>Bienvenue sur AssemblyHub</h1>
+      <p class="lead">Connectez-vous avec le compte fourni par un administrateur. Les inscriptions publiques sont désactivées.</p>
+      ${appMessage('error', authState.error)}${appMessage('notice', authState.notice)}
+      <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" required /></label>
+      <label class="field"><span>Mot de passe</span><input name="password" type="password" autocomplete="current-password" required /></label>
+      <button class="action-button" type="submit">Se connecter</button>
+      <button class="link-button" id="forgot-password" type="button">Mot de passe oublié</button>
+    </form>
+  </section>`;
+}
+
+function renderSetup() {
+  return `<section class="auth-layout">
+    <form class="auth-card" id="setup-form">
+      <p class="kicker">Configuration initiale</p>
+      <h1>Créer le premier administrateur</h1>
+      <p class="lead">Aucun compte admin n’a été trouvé dans Firestore. Ce formulaire apparaît uniquement au premier lancement.</p>
+      ${appMessage('error', authState.error)}
+      <label class="field"><span>Prénom</span><input name="prenom" required /></label>
+      <label class="field"><span>Nom</span><input name="nom" required /></label>
+      <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" required /></label>
+      <label class="field"><span>Mot de passe initial</span><input name="password" type="password" minlength="8" autocomplete="new-password" required /></label>
+      <button class="action-button" type="submit">Créer l’administrateur</button>
+    </form>
+  </section>`;
+}
+
+function renderAccessDenied(message) {
+  return `<section class="auth-layout"><div class="auth-card"><p class="kicker">Accès impossible</p><h1>${message}</h1><button class="action-button" id="logout-button" type="button">Se déconnecter</button></div></section>`;
 }
 
 const routeRenderers = {
@@ -304,9 +471,43 @@ const routeRenderers = {
 };
 
 function renderRoute() {
-  const route = routeForPath();
+  if (!authState.ready) {
+    document.title = 'Chargement · AssemblyHub';
+    app.innerHTML = renderLoading();
+    return;
+  }
+
+  if (authState.mode === 'setup') {
+    document.title = 'Configuration initiale · AssemblyHub';
+    app.innerHTML = renderSetup();
+    bindAuthInteractions();
+    return;
+  }
+
+  if (!authState.firebaseUser) {
+    document.title = 'Connexion · AssemblyHub';
+    app.innerHTML = renderLogin();
+    bindAuthInteractions();
+    return;
+  }
+
+  if (authState.userDoc?.active === false) {
+    document.title = 'Compte désactivé · AssemblyHub';
+    app.innerHTML = renderAccessDenied('Votre compte est désactivé. Contactez un administrateur.');
+    bindAuthInteractions();
+    return;
+  }
+
+  let route = routeForPath();
+  if (!canAccessRoute(route.path)) {
+    route = routes[0];
+    window.history.replaceState({}, '', routeToUrl('/'));
+    authState.notice = 'Vous avez été redirigé vers l’accueil car cette page est réservée à un autre rôle.';
+  }
+
   document.title = `${route.label} · AssemblyHub`;
-  app.innerHTML = routeRenderers[route.path]();
+  app.innerHTML = `${authState.notice ? appMessage('notice', authState.notice) : ''}${routeRenderers[route.path]()}`;
+  authState.notice = '';
   app.focus({ preventScroll: true });
   renderNavigationState();
   bindLinks(app);
@@ -314,8 +515,8 @@ function renderRoute() {
 }
 
 function renderNavigationState() {
-  desktopNav.innerHTML = routes.map((route) => navLink(route)).join('');
-  bottomNav.innerHTML = routes.filter((route) => route.primary).map((route) => navLink(route, true)).join('') + `
+  desktopNav.innerHTML = visibleRoutes().map((route) => navLink(route)).join('');
+  bottomNav.innerHTML = visibleRoutes().filter((route) => route.primary).map((route) => navLink(route, true)).join('') + `
     <button type="button" id="open-more" aria-pressed="false">
       <span class="tab-icon">☰</span><span>Plus</span>
     </button>`;
@@ -325,6 +526,10 @@ function renderNavigationState() {
 }
 
 function bindPageInteractions(path) {
+  if (path === '/admin') {
+    bindAdminInteractions();
+  }
+
   if (path === '/affectations') {
     const renderAssignmentsList = (filter = 'future') => {
       const items = store.assignments.filter((assignment) => filter === 'future' ? isFuture(assignment.date) : !isFuture(assignment.date));
@@ -371,6 +576,183 @@ function bindPageInteractions(path) {
   }
 }
 
+
+async function initializeFirebaseAuth() {
+  try {
+    const [appModule, authModule, firestoreModule, functionsModule] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js'),
+    ]);
+    const firebaseApp = appModule.initializeApp(firebaseConfig);
+    const auth = authModule.getAuth(firebaseApp);
+    const db = firestoreModule.getFirestore(firebaseApp);
+    const functions = functionsModule.getFunctions(firebaseApp, 'europe-west1');
+    firebaseApi = { authModule, firestoreModule, functionsModule, app: firebaseApp, auth, db, functions };
+    await detectInitialMode();
+    authModule.onAuthStateChanged(auth, handleAuthStateChanged);
+  } catch (error) {
+    authState = { ...authState, ready: true, mode: 'login', error: `Firebase est indisponible : ${error.message}` };
+    renderRoute();
+  }
+}
+
+async function detectInitialMode() {
+  const { doc, getDoc } = firebaseApi.firestoreModule;
+  const bootstrap = await getDoc(doc(firebaseApi.db, 'settings', 'bootstrap'));
+  authState.ready = true;
+  authState.mode = bootstrap.exists() && bootstrap.data().hasAdmin === true ? 'login' : 'setup';
+}
+
+async function handleAuthStateChanged(firebaseUser) {
+  authState.firebaseUser = firebaseUser;
+  authState.error = '';
+  if (!firebaseUser) {
+    currentUser = demoUser;
+    authState.userDoc = null;
+    authState.users = [];
+    if (authState.mode !== 'setup') authState.mode = 'login';
+    authState.ready = true;
+    renderRoute();
+    return;
+  }
+
+  const { doc, getDoc, serverTimestamp, updateDoc } = firebaseApi.firestoreModule;
+  const ref = doc(firebaseApi.db, 'users', firebaseUser.uid);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) {
+    if (authState.mode === 'setup') return;
+    await firebaseApi.authModule.signOut(firebaseApi.auth);
+    authState.error = 'Aucun profil AssemblyHub n’est associé à ce compte.';
+    authState.mode = 'login';
+    renderRoute();
+    return;
+  }
+
+  authState.userDoc = { uid: firebaseUser.uid, ...snapshot.data() };
+  currentUser = mapUserDoc(firebaseUser, authState.userDoc);
+  await updateDoc(ref, { lastLogin: serverTimestamp() });
+  authState.mode = 'app';
+  if (isAdmin()) await loadUsers();
+  renderRoute();
+}
+
+async function loadUsers() {
+  if (!isAdmin()) return;
+  const { collection, getDocs, orderBy, query } = firebaseApi.firestoreModule;
+  const usersQuery = query(collection(firebaseApi.db, 'users'), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(usersQuery);
+  authState.users = snapshot.docs.map((entry) => ({ uid: entry.id, ...entry.data() }));
+}
+
+function bindAuthInteractions() {
+  document.querySelector('#login-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      authState.error = '';
+      await firebaseApi.authModule.signInWithEmailAndPassword(firebaseApi.auth, form.get('email'), form.get('password'));
+    } catch (error) {
+      authState.error = friendlyFirebaseError(error);
+      renderRoute();
+    }
+  });
+
+  document.querySelector('#forgot-password')?.addEventListener('click', async () => {
+    const email = document.querySelector('#login-form input[name="email"]')?.value;
+    if (!email) {
+      authState.error = 'Indiquez votre email avant de demander la réinitialisation.';
+      renderRoute();
+      return;
+    }
+    await firebaseApi.authModule.sendPasswordResetEmail(firebaseApi.auth, email);
+    authState.notice = 'Email de réinitialisation envoyé si le compte existe.';
+    renderRoute();
+  });
+
+  document.querySelector('#setup-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const credential = await firebaseApi.authModule.createUserWithEmailAndPassword(firebaseApi.auth, form.get('email'), form.get('password'));
+      const { doc, serverTimestamp, setDoc } = firebaseApi.firestoreModule;
+      const adminProfile = {
+        prenom: form.get('prenom'),
+        nom: form.get('nom'),
+        email: form.get('email'),
+        role: 'admin',
+        editor: true,
+        active: true,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+      };
+      await setDoc(doc(firebaseApi.db, 'users', credential.user.uid), adminProfile);
+      await setDoc(doc(firebaseApi.db, 'settings', 'bootstrap'), { hasAdmin: true, createdAt: serverTimestamp(), createdBy: credential.user.uid });
+      authState.userDoc = { uid: credential.user.uid, ...adminProfile };
+      currentUser = mapUserDoc(credential.user, authState.userDoc);
+      authState.mode = 'app';
+      authState.firebaseUser = credential.user;
+      await loadUsers();
+      renderRoute();
+    } catch (error) {
+      authState.error = friendlyFirebaseError(error);
+      renderRoute();
+    }
+  });
+
+  document.querySelector('#logout-button')?.addEventListener('click', () => firebaseApi.authModule.signOut(firebaseApi.auth));
+}
+
+async function bindAdminInteractions() {
+  document.querySelector('#refresh-users')?.addEventListener('click', async () => {
+    await loadUsers();
+    renderRoute();
+  });
+
+  document.querySelector('#create-user-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const callable = firebaseApi.functionsModule.httpsCallable(firebaseApi.functions, 'createAssemblyHubUser');
+      await callable({
+        prenom: form.get('prenom'),
+        nom: form.get('nom'),
+        email: form.get('email'),
+        role: form.get('role'),
+        editor: form.get('editor') === 'on',
+      });
+      authState.notice = 'Utilisateur créé. Un email de définition du mot de passe doit être envoyé par la fonction sécurisée.';
+      await loadUsers();
+      renderRoute();
+    } catch (error) {
+      authState.error = `Création impossible : ${friendlyFirebaseError(error)}`;
+      renderRoute();
+    }
+  });
+
+  document.querySelectorAll('[data-user-action]').forEach((button) => button.addEventListener('click', async () => {
+    const user = authState.users.find((entry) => entry.uid === button.dataset.userId);
+    if (!user) return;
+    const { deleteDoc, doc, updateDoc } = firebaseApi.firestoreModule;
+    const ref = doc(firebaseApi.db, 'users', user.uid);
+    if (button.dataset.userAction === 'toggle') await updateDoc(ref, { active: user.active === false });
+    if (button.dataset.userAction === 'editor') await updateDoc(ref, { editor: !user.editor });
+    if (button.dataset.userAction === 'delete' && confirm('Supprimer ce profil Firestore ? La suppression du compte Auth doit être faite côté serveur.')) await deleteDoc(ref);
+    await loadUsers();
+    renderRoute();
+  }));
+}
+
+function friendlyFirebaseError(error) {
+  const code = error?.code || '';
+  if (code.includes('auth/invalid-credential')) return 'Email ou mot de passe incorrect.';
+  if (code.includes('auth/email-already-in-use')) return 'Cet email est déjà utilisé.';
+  if (code.includes('auth/weak-password')) return 'Le mot de passe doit contenir au moins 8 caractères.';
+  if (code.includes('permission-denied')) return 'Permission refusée par les règles de sécurité.';
+  return error?.message || 'Une erreur inconnue est survenue.';
+}
+
 function initializeTheme() {
   const savedTheme = localStorage.getItem('assemblyhub-theme');
   if (savedTheme) document.documentElement.dataset.theme = savedTheme;
@@ -401,6 +783,7 @@ async function registerServiceWorker() {
 window.addEventListener('popstate', renderRoute);
 normalizePath();
 renderNavigation();
+initializeFirebaseAuth();
 initializeTheme();
 initializeOfflineToast();
 renderRoute();
