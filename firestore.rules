@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function currentUser() {
+      return get(userPath(request.auth.uid));
+    }
+
+    function currentRole() {
+      return signedIn() && currentUser().data.active == true ? currentUser().data.role : null;
+    }
+
+    function isAdmin() {
+      return currentRole() == 'admin';
+    }
+
+    function isAncien() {
+      return currentRole() == 'ancien';
+    }
+
+    function isEditor() {
+      return signedIn() && currentUser().data.editor == true;
+    }
+
+    function canReadMemberContent() {
+      return currentRole() in ['admin', 'ancien', 'frere', 'proclamateur'];
+    }
+
+    function canReadCongregationContent() {
+      return currentRole() in ['admin', 'ancien', 'frere'];
+    }
+
+    function canEditModule(moduleName) {
+      return isAdmin() || ((isAncien() || currentRole() == 'frere') && isEditor() && moduleName in currentUser().data.privileges);
+    }
+
+    function protectedRoleFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'editor', 'active']);
+    }
+
+    function validFirstAdmin(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && !exists(/databases/$(database)/documents/settings/bootstrap)
+        && request.resource.data.role == 'admin'
+        && request.resource.data.editor == true
+        && request.resource.data.active == true
+        && request.resource.data.email == request.auth.token.email;
+    }
+
+    match /settings/bootstrap {
+      allow read: if true;
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/settings/bootstrap)
+        && request.resource.data.hasAdmin == true
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId) || canReadCongregationContent();
+      allow create: if isAdmin() || validFirstAdmin(userId);
+      allow update: if isAdmin() || (signedIn() && request.auth.uid == userId && protectedRoleFieldsUnchanged());
+      allow delete: if isAdmin() && request.auth.uid != userId;
+    }
+
+    match /meetings/{meetingId} {
+      allow read: if canReadMemberContent();
+      allow write: if canEditModule('meetings');
+    }
+
+    match /meetingAssignments/{assignmentId} {
+      allow read: if canReadMemberContent();
+      allow write: if canEditModule('meetingAssignments');
+    }
+
+    match /talks/{talkId} {
+      allow read: if canReadCongregationContent();
+      allow write: if canEditModule('talks');
+    }
+
+    match /territories/{territoryId} {
+      allow read: if canReadCongregationContent();
+      allow write: if canEditModule('territories');
+    }
+
+    match /documents/{documentId} {
+      allow read: if canReadMemberContent();
+      allow write: if canEditModule('documents');
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if canReadMemberContent();
+      allow write: if canEditModule('announcements');
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || (isEditor() && currentRole() in ['ancien', 'frere']);
+      allow update, delete: if false;
+    }
+  }
+}

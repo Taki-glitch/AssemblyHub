@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta
+      name="description"
+      content="AssemblyHub est une PWA privée, mobile-first, pour consulter et gérer les informations essentielles d'une congrégation."
+    />
+    <title>AssemblyHub</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-app">
+      <header class="app-header">
+        <a class="brand" href="./" data-link aria-label="AssemblyHub accueil">
+          <span class="brand__logo">AH</span>
+          <span>
+            <strong>AssemblyHub</strong>
+            <small>Ma congrégation</small>
+          </span>
+        </a>
+        <div class="header-actions">
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="Changer le thème">◐</button>
+          <a class="avatar" href="profil/" data-link aria-label="Mon profil">MD</a>
+        </div>
+      </header>
+
+      <nav class="desktop-nav" id="desktop-nav" aria-label="Navigation principale"></nav>
+
+      <main class="page-frame" id="app" tabindex="-1"></main>
+
+      <nav class="bottom-nav" id="bottom-nav" aria-label="Navigation mobile principale"></nav>
+    </div>
+
+    <div class="sheet" id="more-sheet" aria-hidden="true">
+      <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="more-title">
+        <div class="sheet__handle" aria-hidden="true"></div>
+        <div class="sheet__header">
+          <h2 id="more-title">Plus</h2>
+          <button class="icon-button" id="close-more" type="button" aria-label="Fermer le menu plus">×</button>
+        </div>
+        <div class="more-grid" id="more-grid"></div>
+      </div>
+    </div>
+
+    <div class="offline-toast" id="offline-toast" role="status" hidden>
+      Hors ligne — AssemblyHub affiche les données en cache et synchronisera les changements plus tard.
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
