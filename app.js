@@ -1,6 +1,6 @@
 import { firebaseConfig } from './firebase-config.js';
 
-const scriptUrl = new URL(document.currentScript.src);
+const scriptUrl = new URL(import.meta.url);
 const appBase = scriptUrl.pathname.replace(/\/?app\.js$/, '');
 const normalizedBase = appBase === '/' ? '' : appBase;
 

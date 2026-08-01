@@ -1,4 +1,4 @@
-const CACHE_NAME = 'assemblyhub-v3';
+const CACHE_NAME = 'assemblyhub-v4';
 const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const withBase = (path) => `${BASE_PATH}${path}` || '/';
 const APP_SHELL = [
