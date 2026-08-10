@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">AssemblyHub</title>
+  <defs>
+    <linearGradient id="g" x1="96" y1="56" x2="416" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <path d="M139 342 244 132h28l101 210h-57l-19-43h-85l-20 43h-53Zm94-91h43l-21-50-22 50Z" fill="white"/>
+  <path d="M156 379h200" stroke="white" stroke-width="28" stroke-linecap="round" opacity=".9"/>
+</svg>
